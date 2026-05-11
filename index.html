@@ -1263,14 +1263,13 @@ function toggle(){
   document.getElementById("sidebar").classList.toggle("open");
   document.getElementById("overlay").style.display=document.getElementById("sidebar").classList.contains("open")?"block":"none";
 }
-
 function loadApps(){
   let html="";
   apps.forEach((app,i)=>{
-  html += `<div class="card" onclick="openBuyPopup(${i})">
-  <img src="${app.img}" alt="${app.name}">
-  <div><strong>${app.name}</strong></div>
-</div>`;
+    html += `<div class="card" onclick="openBuyPopup(${i})">
+      <img src="${app.img}" alt="${app.name}">
+      <div><strong>${app.name}</strong></div>
+    </div>`;
   });
   document.getElementById("appsGrid").innerHTML=html;
 }
@@ -1682,8 +1681,11 @@ function confirmBuy() {
     closePopup();
   }
 }
+// تشغيل النظام عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', () => {
+    initSupabase();
+});
 
-function openBuyPopup(i) {
-  selectedApp = apps[i].name;
-  document.getElementById("buyPopup").style.display = "flex";
-  document.getElementB
+</script>
+</body>
+</html>
