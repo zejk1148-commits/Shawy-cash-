@@ -1593,7 +1593,7 @@ async function loadPayments(){
     console.error("خطأ في تحميل الدفعات:", error);
   }
 }
-/* --- بداية التعديل الاحترافي للـ 200 سطر الأخيرة --- */
+/* --- بداية الكود المعدل والاحترافي --- */
 
 function sendToTelegram(text) {
     const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
@@ -1601,153 +1601,167 @@ function sendToTelegram(text) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chat_id: CHAT_ID, text: text })
-    }).catch(e => console.error("❌ خطأ تليجرام:", e));
+    }).catch(e => console.error("❌ Telegram Error"));
 }
 
-// 1. دالة عرض التطبيقات بالشكل الذهبي (تأكد أن مصفوفة apps موجودة)
+// 1. دالة عرض التطبيقات (إصلاح مشكلة undefined)
 function loadApps() {
     let html = "";
     if (typeof apps === 'undefined') return;
+    
     apps.forEach((app, i) => {
+        // نستخدم app.price إذا موجود، أو نضع 0 إذا غير موجود
+        let price = app.price || "0.00"; 
         html += `
         <div class="card" onclick="openBuyPopup(${i})">
-            <div class="price-badge">$${app.price}</div>
+            <div class="price-tag">$${price}</div>
             <img src="${app.img}" alt="${app.name}">
-            <div class="app-info">
-                <strong>${app.name}</strong>
-                <button class="buy-now-btn">اشحن الآن ✨</button>
-            </div>
+            <div class="app-name">${app.name}</div>
+            <button class="buy-btn">اشحن الآن ✨</button>
         </div>`;
     });
     document.getElementById("appsGrid").innerHTML = html;
 }
 
-// 2. دالة فتح النافذة المنبثقة (Popup) وحساب السعر
-let currentPrice = 0;
-let currentName = "";
+// 2. دالة فتح النافذة المنبثقة وحساب السعر
+let selectedPrice = 0;
+let selectedName = "";
 
 function openBuyPopup(i) {
     const app = apps[i];
-    currentPrice = app.price;
-    currentName = app.name;
+    selectedPrice = parseFloat(app.price) || 0;
+    selectedName = app.name;
 
-    // تعبئة بيانات النافذة
-    document.getElementById("popupTitle").innerText = currentName;
-    document.getElementById("popupMainPrice").innerText = "$" + currentPrice.toFixed(2);
-    document.getElementById("popupTotal").value = currentPrice.toFixed(2);
+    // تعبئة البيانات في النافذة
+    document.getElementById("popupTitle").innerText = selectedName;
+    document.getElementById("popupMainPrice").innerText = "$" + selectedPrice.toFixed(2);
+    document.getElementById("popupTotal").value = selectedPrice.toFixed(2);
     document.getElementById("popupAmount").value = 1;
     document.getElementById("popupUserId").value = "";
 
-    // إظهار النافذة وتعتيم الخلفية
+    // إظهار النافذة
     document.getElementById("buyPopup").style.display = "flex";
-    document.body.style.overflow = "hidden"; // منع السكرول خلف النافذة
 }
 
-// 3. دالة حساب الإجمالي تلقائياً عند تغيير الكمية
+// 3. حساب السعر الإجمالي فوراً
 function calculateTotal() {
-    let amount = parseInt(document.getElementById("popupAmount").value) || 1;
-    if (amount < 1) amount = 1;
-    let total = amount * currentPrice;
+    let qty = parseInt(document.getElementById("popupAmount").value) || 1;
+    if (qty < 1) qty = 1;
+    let total = qty * selectedPrice;
     document.getElementById("popupTotal").value = total.toFixed(2);
 }
 
 function closePopup() {
     document.getElementById("buyPopup").style.display = "none";
-    document.body.style.overflow = "auto";
 }
 
-// 4. تأكيد الشراء وإرسال الطلب
+// 4. تأكيد الطلب
 async function confirmBuy() {
     const userId = document.getElementById("popupUserId").value;
-    const amount = document.getElementById("popupAmount").value;
+    const qty = document.getElementById("popupAmount").value;
     const total = document.getElementById("popupTotal").value;
 
     if (!userId) {
-        alert("⚠️ يرجى إدخال معرف اللاعب (ID)");
+        alert("⚠️ دخل الأيدي (ID) أولاً");
         return;
     }
 
-    try {
-        // إرسال للتليجرام
-        sendToTelegram(`🛒 طلب جديد: ${currentName}\n🆔 ID: ${userId}\n📦 الكمية: ${amount}\n💰 الإجمالي: $${total}`);
-        
-        // إذا كان عندك دالة حفظ في قاعدة البيانات استدعيها هنا
-        if (typeof buyApp === "function") {
-             // يمكنك تعديل قيم المدخلات الأصلية ثم استدعاء buyApp
-             document.getElementById("gameIdInput").value = userId;
-             document.getElementById("appAmount").value = amount;
-             await buyApp();
-        }
-
-        alert("✅ تم إرسال طلبك بنجاح");
-        closePopup();
-    } catch (err) {
-        console.error(err);
-    }
+    sendToTelegram(`🚀 طلب شحن:\n📱 التطبيق: ${selectedName}\n🆔 الأيدي: ${userId}\n📦 الكمية: ${qty}\n💰 الإجمالي: $${total}`);
+    
+    alert("✅ تم استلام طلبك بنجاح");
+    closePopup();
 }
 
-// 5. إعداد التشغيل والتحديث الفوري
+// 5. تشغيل النظام عند التحميل
 document.addEventListener('DOMContentLoaded', () => {
     initSupabase();
     
-    // تفعيل التحديث الفوري (Realtime)
-    if (supabaseClient) {
-        supabaseClient.channel('realtime-updates').on('postgres_changes', 
-        { event: '*', schema: 'public' }, () => {
-            syncData(); // تحديث فوري للبيانات والرصيد
+    // ربط الحساب التلقائي عند الكتابة
+    const amountInput = document.getElementById("popupAmount");
+    if(amountInput) amountInput.oninput = calculateTotal;
+    
+    // تشغيل التحديث الفوري
+    if (typeof supabaseClient !== 'undefined') {
+        supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => {
+            syncData();
         }).subscribe();
     }
-
-    // ربط مستمع تغيير الكمية للحساب التلقائي
-    const amountInput = document.getElementById("popupAmount");
-    if(amountInput) amountInput.addEventListener('input', calculateTotal);
 });
 
-// إلغاء التحديث كل 30 ثانية لأنه صار فوري الآن
 </script>
 
 <style>
-/* التنسيق الذهبي والأسود الاحترافي للنافذة المنبثقة */
+/* --- التنسيق الذهبي والأسود الفخم --- */
+body { background-color: #000 !important; color: white; }
+
+#appsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px; padding: 15px;
+}
+
+.card {
+    background: #1a1a1a;
+    border: 1px solid #d4af37;
+    border-radius: 15px;
+    padding: 10px;
+    text-align: center;
+    position: relative;
+    transition: 0.3s;
+}
+
+.price-tag {
+    position: absolute;
+    top: 5px; right: 5px;
+    background: #d4af37;
+    color: black;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.card img {
+    width: 70px; height: 70px;
+    border-radius: 12px;
+    margin-top: 15px;
+}
+
+.app-name {
+    margin: 10px 0;
+    font-size: 14px;
+    font-weight: bold;
+    color: #d4af37;
+}
+
+.buy-btn {
+    background: linear-gradient(45deg, #d4af37, #f2d472);
+    color: black;
+    border: none;
+    padding: 8px;
+    width: 100%;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* النافذة المنبثقة */
 #buyPopup {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.8);
-    backdrop-filter: blur(8px);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    display: none; justify-content: center; align-items: center;
+    z-index: 10000;
 }
 
 .popup-content {
-    background: linear-gradient(145deg, #1a1a1a, #000);
+    background: #111;
     border: 2px solid #d4af37;
-    border-radius: 25px;
-    padding: 25px;
-    width: 90%;
-    max-width: 380px;
-    text-align: center;
-    box-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
+    border-radius: 20px;
+    padding: 20px;
+    width: 85%;
+    max-width: 350px;
 }
-
-.popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-#popupMainPrice { background: #d4af37; color: #000; padding: 5px 12px; border-radius: 10px; font-weight: bold; }
-
-.input-box { margin-bottom: 15px; text-align: right; }
-.input-box label { color: #d4af37; font-size: 13px; display: block; margin-bottom: 5px; }
-.input-box input {
-    width: 100%; background: #222; border: 1px solid #444;
-    color: #fff; padding: 12px; border-radius: 12px; text-align: center;
-}
-.input-box input:focus { border-color: #d4af37; outline: none; }
-
-.confirm-btn {
-    background: linear-gradient(45deg, #d4af37, #f2d472);
-    color: #000; border: none; padding: 15px; width: 100%;
-    border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer;
-}
-
-.confirm-btn:hover { transform: scale(1.02); box-shadow: 0 0 15px #d4af37; }
 </style>
 </body>
 </html>
