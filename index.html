@@ -1593,113 +1593,144 @@ async function loadPayments(){
     console.error("خطأ في تحميل الدفعات:", error);
   }
 }
-// --- الجزء الأخير من السكريبت: الإدارة والطلبات ---
+/* --- بداية الكود المصلح والشامل --- */
 
 function sendToTelegram(text) {
-  if (typeof TELEGRAM_TOKEN === 'undefined' || typeof CHAT_ID === 'undefined') return;
-  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-  fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: CHAT_ID, text: text })
-  }).catch(e => console.error("Telegram Error"));
+    if (typeof TELEGRAM_TOKEN === 'undefined' || typeof CHAT_ID === 'undefined') return;
+    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+    fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: CHAT_ID, text: text })
+    }).catch(e => console.error("Telegram Error"));
 }
 
-// 1. عرض التطبيقات بالشكل الصحيح
+// 1. دالة عرض التطبيقات (تأكد أن الكرت يفتح عند الضغط)
 function loadApps() {
-  const grid = document.getElementById("appsGrid");
-  if (!grid || typeof apps === 'undefined') return;
-  
-  let html = "";
-  apps.forEach((app, i) => {
-    html += `
-    <div class="card" onclick="openBuyPopup(${i})">
-      <div class="price-badge">$${app.price || '0.00'}</div>
-      <img src="${app.img}" alt="${app.name}">
-      <strong>${app.name}</strong>
-      <button class="buy-btn">اشحن الآن ✨</button>
-    </div>`;
-  });
-  grid.innerHTML = html;
+    const grid = document.getElementById("appsGrid");
+    if (!grid || typeof apps === 'undefined') return;
+    
+    let html = "";
+    apps.forEach((app, i) => {
+        let displayPrice = app.price ? app.price : "0.00";
+        html += `
+        <div class="card" onclick="openBuyPopup(${i})" style="cursor:pointer;">
+            <div class="price-badge" style="position:absolute; top:10px; right:10px; background:#d4af37; color:#000; padding:2px 8px; border-radius:5px; font-weight:bold; font-size:12px;">$${displayPrice}</div>
+            <img src="${app.img}" alt="${app.name}" style="width:80px; height:80px; border-radius:15px; margin-bottom:10px;">
+            <div style="color:#d4af37; font-weight:bold;">${app.name}</div>
+            <button class="buy-btn" style="margin-top:10px; background:linear-gradient(45deg, #d4af37, #f2d472); border:none; padding:8px; width:100%; border-radius:10px; font-weight:bold; cursor:pointer;">اشحن الآن ✨</button>
+        </div>`;
+    });
+    grid.innerHTML = html;
 }
 
-// 2. إدارة النافذة المنبثقة والحساب التلقائي
-let currentPrice = 0;
+// 2. دالة فتح الكرت (النافذة المنبثقة) وحساب السعر
+let currentAppPrice = 0;
 let currentAppName = "";
 
 function openBuyPopup(i) {
-  const app = apps[i];
-  if (!app) return;
+    const app = apps[i];
+    if (!app) return;
 
-  currentPrice = parseFloat(app.price) || 0;
-  currentAppName = app.name;
+    currentAppPrice = parseFloat(app.price) || 0;
+    currentAppName = app.name;
 
-  // تعبئة البيانات بالنافذة (تأكد أن الـ IDs مطابقة لملفك)
-  if(document.getElementById("popupTitle")) document.getElementById("popupTitle").innerText = currentAppName;
-  if(document.getElementById("popupMainPrice")) document.getElementById("popupMainPrice").innerText = "$" + currentPrice.toFixed(2);
-  if(document.getElementById("popupTotal")) document.getElementById("popupTotal").value = currentPrice.toFixed(2);
-  if(document.getElementById("popupAmount")) document.getElementById("popupAmount").value = 1;
-  if(document.getElementById("popupUserId")) document.getElementById("popupUserId").value = "";
+    // تعبئة البيانات في النافذة
+    const popupTitle = document.getElementById("popupTitle");
+    const popupMainPrice = document.getElementById("popupMainPrice");
+    const popupTotal = document.getElementById("popupTotal");
+    const popupAmount = document.getElementById("popupAmount");
+    const popupUserId = document.getElementById("popupUserId");
 
-  const popup = document.getElementById("buyPopup");
-  if(popup) popup.style.display = "flex";
+    if(popupTitle) popupTitle.innerText = currentAppName;
+    if(popupMainPrice) popupMainPrice.innerText = "$" + currentAppPrice.toFixed(2);
+    if(popupTotal) popupTotal.value = currentAppPrice.toFixed(2);
+    if(popupAmount) popupAmount.value = 1;
+    if(popupUserId) popupUserId.value = "";
+
+    // إظهار النافذة (تأكد أن ID النافذة في ملفك هو buyPopup)
+    const modal = document.getElementById("buyPopup");
+    if(modal) {
+        modal.style.display = "flex";
+    } else {
+        console.error("لم يتم العثور على عنصر buyPopup في الـ HTML");
+    }
 }
 
+// 3. دالة الحساب التلقائي عند تغيير الكمية
 function calculateTotal() {
-  const amountInput = document.getElementById("popupAmount");
-  const totalInput = document.getElementById("popupTotal");
-  if (amountInput && totalInput) {
-    let qty = parseInt(amountInput.value) || 1;
-    if (qty < 1) qty = 1;
-    totalInput.value = (qty * currentPrice).toFixed(2);
-  }
+    const qtyInput = document.getElementById("popupAmount");
+    const totalInput = document.getElementById("popupTotal");
+    if(qtyInput && totalInput) {
+        let qty = parseInt(qtyInput.value) || 1;
+        if (qty < 1) qty = 1;
+        let total = qty * currentAppPrice;
+        totalInput.value = total.toFixed(2);
+    }
 }
 
 function closePopup() {
-  const popup = document.getElementById("buyPopup");
-  if(popup) popup.style.display = "none";
+    const modal = document.getElementById("buyPopup");
+    if(modal) modal.style.display = "none";
 }
 
-// 3. تأكيد الشراء
+// 4. تأكيد الطلب
 async function confirmBuy() {
-  const userId = document.getElementById("popupUserId")?.value;
-  const amount = document.getElementById("popupAmount")?.value || 1;
-  const total = document.getElementById("popupTotal")?.value || currentPrice;
+    const userId = document.getElementById("popupUserId")?.value;
+    const qty = document.getElementById("popupAmount")?.value || 1;
+    const total = document.getElementById("popupTotal")?.value || currentAppPrice;
 
-  if (!userId) {
-    alert("⚠️ يرجى إدخال ID اللاعب");
-    return;
-  }
+    if (!userId) {
+        alert("⚠️ يرجى إدخال معرف اللاعب (ID)");
+        return;
+    }
 
-  const msg = `🛒 طلب شحن:\n📱 التطبيق: ${currentAppName}\n🆔 ID: ${userId}\n📦 الكمية: ${amount}\n💰 الإجمالي: $${total}`;
-  sendToTelegram(msg);
-  
-  alert("✅ تم استلام طلبك بنجاح");
-  closePopup();
+    sendToTelegram(`🚀 طلب شحن جديد:\n📱 التطبيق: ${currentAppName}\n🆔 الأيدي: ${userId}\n📦 الكمية: ${qty}\n💰 الإجمالي: $${total}`);
+    alert("✅ تم استلام طلبك بنجاح");
+    closePopup();
 }
 
-// 4. تشغيل النظام والربط
+// 5. تهيئة النظام عند التشغيل
 document.addEventListener('DOMContentLoaded', () => {
-  // تشغيل سوبابيس
-  if (typeof initSupabase === 'function') initSupabase();
-  
-  // تشغيل عرض التطبيقات
-  loadApps();
+    // تشغيل سوبابيس إذا كانت الدالة موجودة
+    if (typeof initSupabase === 'function') initSupabase();
+    
+    // تحميل التطبيقات
+    loadApps();
 
-  // ربط الحساب التلقائي عند الكتابة
-  const amountInp = document.getElementById("popupAmount");
-  if(amountInp) {
-    amountInp.addEventListener('input', calculateTotal);
-  }
-  
-  // تشغيل التحديثات التلقائية (Realtime)
-  if (typeof supabaseClient !== 'undefined') {
-    supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => {
-      if (typeof syncData === 'function') syncData();
-    }).subscribe();
-  }
+    // ربط الحساب التلقائي بحقل الكمية
+    const amtInput = document.getElementById("popupAmount");
+    if(amtInput) {
+        amtInput.addEventListener('input', calculateTotal);
+    }
 });
 
 </script>
+<style>
+/* تأكد من أن البطاقة تظهر فوق كل شيء وبخلفية معتمة */
+#buyPopup {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(5px);
+}
+.card {
+    background: #1a1a1a;
+    border: 1px solid #d4af37;
+    border-radius: 15px;
+    padding: 15px;
+    text-align: center;
+    position: relative;
+    transition: 0.3s;
+}
+.card:hover {
+    box-shadow: 0 0 15px #d4af37;
+}
+</style>
 </body>
 </html>
