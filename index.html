@@ -1593,7 +1593,7 @@ async function loadPayments(){
     console.error("خطأ في تحميل الدفعات:", error);
   }
 }
-/* --- بداية الكود المعدل والاحترافي --- */
+/* --- بداية الكود الآمن والمصلح --- */
 
 function sendToTelegram(text) {
     const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
@@ -1601,29 +1601,27 @@ function sendToTelegram(text) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chat_id: CHAT_ID, text: text })
-    }).catch(e => console.error("❌ Telegram Error"));
+    }).catch(e => console.error("Telegram Error"));
 }
 
-// 1. دالة عرض التطبيقات (إصلاح مشكلة undefined)
+// 1. دالة عرض التطبيقات (تم إصلاحها لتعمل مع نظامك)
 function loadApps() {
     let html = "";
     if (typeof apps === 'undefined') return;
-    
     apps.forEach((app, i) => {
-        // نستخدم app.price إذا موجود، أو نضع 0 إذا غير موجود
-        let price = app.price || "0.00"; 
+        // نستخدم المسميات الموجودة في ملفك الأصلي
         html += `
         <div class="card" onclick="openBuyPopup(${i})">
-            <div class="price-tag">$${price}</div>
             <img src="${app.img}" alt="${app.name}">
-            <div class="app-name">${app.name}</div>
-            <button class="buy-btn">اشحن الآن ✨</button>
+            <div><strong>${app.name}</strong></div>
+            <div style="color:#d4af37">$${app.price || '0.00'}</div>
         </div>`;
     });
-    document.getElementById("appsGrid").innerHTML = html;
+    const grid = document.getElementById("appsGrid");
+    if(grid) grid.innerHTML = html;
 }
 
-// 2. دالة فتح النافذة المنبثقة وحساب السعر
+// 2. دالة فتح النافذة المنبثقة (الـ Popup)
 let selectedPrice = 0;
 let selectedName = "";
 
@@ -1632,136 +1630,70 @@ function openBuyPopup(i) {
     selectedPrice = parseFloat(app.price) || 0;
     selectedName = app.name;
 
-    // تعبئة البيانات في النافذة
-    document.getElementById("popupTitle").innerText = selectedName;
-    document.getElementById("popupMainPrice").innerText = "$" + selectedPrice.toFixed(2);
-    document.getElementById("popupTotal").value = selectedPrice.toFixed(2);
-    document.getElementById("popupAmount").value = 1;
-    document.getElementById("popupUserId").value = "";
+    // تعبئة البيانات في العناصر الموجودة بملفك
+    const title = document.getElementById("popupTitle");
+    const mainPrice = document.getElementById("popupMainPrice");
+    const totalInput = document.getElementById("popupTotal");
+    const amountInput = document.getElementById("popupAmount");
+    const idInput = document.getElementById("popupUserId");
 
-    // إظهار النافذة
-    document.getElementById("buyPopup").style.display = "flex";
+    if(title) title.innerText = selectedName;
+    if(mainPrice) mainPrice.innerText = "$" + selectedPrice.toFixed(2);
+    if(totalInput) totalInput.value = selectedPrice.toFixed(2);
+    if(amountInput) amountInput.value = 1;
+    if(idInput) idInput.value = "";
+
+    // إظهار النافذة (استخدام نفس ID النافذة بملفك)
+    const popup = document.getElementById("buyPopup");
+    if(popup) popup.style.display = "flex";
 }
 
-// 3. حساب السعر الإجمالي فوراً
+// 3. دالة الحساب التلقائي (تعمل عند تغيير الكمية)
 function calculateTotal() {
-    let qty = parseInt(document.getElementById("popupAmount").value) || 1;
-    if (qty < 1) qty = 1;
-    let total = qty * selectedPrice;
-    document.getElementById("popupTotal").value = total.toFixed(2);
+    const amountInput = document.getElementById("popupAmount");
+    const totalInput = document.getElementById("popupTotal");
+    if(amountInput && totalInput) {
+        let qty = parseInt(amountInput.value) || 1;
+        if (qty < 1) qty = 1;
+        let total = qty * selectedPrice;
+        totalInput.value = total.toFixed(2);
+    }
 }
 
 function closePopup() {
-    document.getElementById("buyPopup").style.display = "none";
+    const popup = document.getElementById("buyPopup");
+    if(popup) popup.style.display = "none";
 }
 
-// 4. تأكيد الطلب
+// 4. تأكيد الشراء
 async function confirmBuy() {
-    const userId = document.getElementById("popupUserId").value;
-    const qty = document.getElementById("popupAmount").value;
-    const total = document.getElementById("popupTotal").value;
+    const idInput = document.getElementById("popupUserId");
+    const amountInput = document.getElementById("popupAmount");
+    const totalInput = document.getElementById("popupTotal");
 
-    if (!userId) {
-        alert("⚠️ دخل الأيدي (ID) أولاً");
+    if (!idInput || !idInput.value) {
+        alert("⚠️ يرجى إدخال ID اللاعب");
         return;
     }
 
-    sendToTelegram(`🚀 طلب شحن:\n📱 التطبيق: ${selectedName}\n🆔 الأيدي: ${userId}\n📦 الكمية: ${qty}\n💰 الإجمالي: $${total}`);
+    const text = `🛒 طلب شحن جديد:\n📱 التطبيق: ${selectedName}\n🆔 الأيدي: ${idInput.value}\n📦 الكمية: ${amountInput.value}\n💰 الإجمالي: $${totalInput.value}`;
+    sendToTelegram(text);
     
     alert("✅ تم استلام طلبك بنجاح");
     closePopup();
 }
 
-// 5. تشغيل النظام عند التحميل
+// 5. التشغيل النهائي
 document.addEventListener('DOMContentLoaded', () => {
     initSupabase();
     
-    // ربط الحساب التلقائي عند الكتابة
+    // ربط الحساب التلقائي بحقل الكمية
     const amountInput = document.getElementById("popupAmount");
-    if(amountInput) amountInput.oninput = calculateTotal;
-    
-    // تشغيل التحديث الفوري
-    if (typeof supabaseClient !== 'undefined') {
-        supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => {
-            syncData();
-        }).subscribe();
+    if(amountInput) {
+        amountInput.oninput = calculateTotal;
     }
 });
 
 </script>
-
-<style>
-/* --- التنسيق الذهبي والأسود الفخم --- */
-body { background-color: #000 !important; color: white; }
-
-#appsGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 15px; padding: 15px;
-}
-
-.card {
-    background: #1a1a1a;
-    border: 1px solid #d4af37;
-    border-radius: 15px;
-    padding: 10px;
-    text-align: center;
-    position: relative;
-    transition: 0.3s;
-}
-
-.price-tag {
-    position: absolute;
-    top: 5px; right: 5px;
-    background: #d4af37;
-    color: black;
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 5px;
-    font-weight: bold;
-}
-
-.card img {
-    width: 70px; height: 70px;
-    border-radius: 12px;
-    margin-top: 15px;
-}
-
-.app-name {
-    margin: 10px 0;
-    font-size: 14px;
-    font-weight: bold;
-    color: #d4af37;
-}
-
-.buy-btn {
-    background: linear-gradient(45deg, #d4af37, #f2d472);
-    color: black;
-    border: none;
-    padding: 8px;
-    width: 100%;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-/* النافذة المنبثقة */
-#buyPopup {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.9);
-    display: none; justify-content: center; align-items: center;
-    z-index: 10000;
-}
-
-.popup-content {
-    background: #111;
-    border: 2px solid #d4af37;
-    border-radius: 20px;
-    padding: 20px;
-    width: 85%;
-    max-width: 350px;
-}
-</style>
 </body>
 </html>
