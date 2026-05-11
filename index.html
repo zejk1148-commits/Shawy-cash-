@@ -1593,77 +1593,102 @@ async function loadPayments(){
     console.error("خطأ في تحميل الدفعات:", error);
   }
 }
-/* --- الكود النهائي: معالجة الأسعار + الكرت الذهبي + اللون الأسود --- */
+/* --- النسخة النهائية المصلحة: أسود وذهبي + كرت شغال + حساب تلقائي --- */
+
+// 1. تدمير اللون الأخضر وفرض الأسود والذهبي (CSS)
+const finalGoldStyle = document.createElement('style');
+finalGoldStyle.innerHTML = `
+    body, html { background-color: #000 !important; color: #fff !important; }
+    header, .top-bar, .navbar, .header-container { 
+        background: #000 !important; 
+        border-bottom: 2px solid #d4af37 !important; 
+    }
+    #appsGrid { 
+        display: grid !important; 
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important; 
+        gap: 20px !important; padding: 20px !important; 
+    }
+    .card { 
+        background: #111 !important; 
+        border: 1px solid #d4af37 !important; 
+        border-radius: 15px !important; 
+        position: relative !important;
+    }
+    /* إخفاء أي سعر قديم طالع برا الكرت */
+    .price-tag-old, [style*="position: absolute"] { display: none; }
+    .card [style*="position: absolute"] { display: block !important; }
+
+    /* تنسيق الكرت المنبثق (الخانات) */
+    #buyPopup { 
+        position: fixed !important; top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(0,0,0,0.95) !important; z-index: 99999 !important; 
+        display: none; justify-content: center; align-items: center; 
+    }
+    .popup-content { 
+        background: #111 !important; border: 2px solid #d4af37 !important; 
+        border-radius: 20px; padding: 25px; width: 85%; max-width: 380px; 
+    }
+    input { 
+        background: #222 !important; border: 1px solid #444 !important; 
+        color: #fff !important; padding: 10px !important; border-radius: 8px !important; 
+        width: 100%; margin-top: 5px;
+    }
+`;
+document.head.appendChild(finalGoldStyle);
+
+// 2. الدوال البرمجية (JS)
+let selectedPrice = 0;
+let selectedAppName = "";
 
 function sendToTelegram(text) {
-    if (typeof TELEGRAM_TOKEN === 'undefined' || typeof CHAT_ID === 'undefined') return;
     const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
     fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chat_id: CHAT_ID, text: text })
-    }).catch(e => console.error("❌ Telegram Error"));
+    }).catch(e => console.error("Telegram Error"));
 }
 
-// 1. دالة عرض التطبيقات (تم إصلاح مكان السعر ليكون داخل كرت التطبيق فقط)
 function loadApps() {
     const grid = document.getElementById("appsGrid");
     if (!grid || typeof apps === 'undefined') return;
     
-    let html = "";
-    apps.forEach((app, i) => {
-        let price = app.price || "0.00";
-        // لاحظ هنا: السعر موضوع داخل الـ div الخاص بكل تطبيق (Card) لضمان عدم طيرانه فوق
-        html += `
-        <div class="app-item" onclick="openPopup('${app.name}', ${price})" style="background:#111; border:1px solid #d4af37; border-radius:15px; padding:12px; text-align:center; position:relative; cursor:pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.8);">
-            <div style="position:absolute; top:8px; right:8px; background:#d4af37; color:#000; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:11px; z-index:10;">$${price}</div>
-            <img src="${app.img}" style="width:75px; height:75px; border-radius:12px; border:1px solid #222; margin-bottom:8px;">
-            <div style="color:#d4af37; font-weight:bold; font-size:14px; margin-bottom:8px;">${app.name}</div>
-            <button style="background:linear-gradient(45deg, #d4af37, #f2d472); border:none; padding:8px; width:100%; border-radius:8px; font-weight:bold; cursor:pointer; color:#000;">اشحن الآن ✨</button>
-        </div>`;
-    });
-    grid.innerHTML = html;
+    grid.innerHTML = apps.map((app, i) => `
+        <div class="card" onclick="openPopup('${app.name}', ${app.price || 0})" style="padding:15px; text-align:center; cursor:pointer;">
+            <div style="position:absolute; top:8px; right:8px; background:#d4af37; color:#000; padding:2px 8px; border-radius:5px; font-weight:bold; font-size:11px;">$${app.price || '0.00'}</div>
+            <img src="${app.img}" style="width:80px; height:80px; border-radius:15px; margin-bottom:10px;">
+            <div style="color:#d4af37; font-weight:bold;">${app.name}</div>
+            <button style="background:linear-gradient(45deg, #d4af37, #f2d472); border:none; padding:10px; width:100%; border-radius:10px; margin-top:10px; font-weight:bold; color:#000;">اشحن الآن ✨</button>
+        </div>
+    `).join('');
 }
 
-// 2. إدارة الكرت (النافذة المنبثقة) - التأكد من الظهور بنسبة 100%
-let currentPrice = 0;
-let currentAppName = "";
-
 function openPopup(name, price) {
-    currentAppName = name;
-    currentPrice = parseFloat(price) || 0;
-
-    // نبحث عن كرت الشراء (التأكد من الـ ID)
+    selectedAppName = name;
+    selectedPrice = parseFloat(price);
+    
     const popup = document.getElementById("buyPopup");
     if (popup) {
-        popup.style.display = "flex"; // تفعيل الظهور
+        popup.style.display = "flex";
         document.getElementById("popupTitle").innerText = name;
-        
-        // وضع السعر في زاوية الكرت المنبثق
-        const tag = document.getElementById("popupMainPrice");
-        if(tag) tag.innerText = "$" + currentPrice.toFixed(2);
-        
-        // تصفير الخانات
         document.getElementById("popupAmount").value = 1;
         document.getElementById("popupUserId").value = "";
-        document.getElementById("popupTotal").value = currentPrice.toFixed(2);
-    } else {
-        alert("خطأ: لم يتم العثور على عنصر الكرت (buyPopup)");
+        document.getElementById("popupTotal").value = selectedPrice.toFixed(2);
+        
+        // السعر الصغير بالزاوية
+        const mainPriceLabel = document.getElementById("popupMainPrice");
+        if(mainPriceLabel) mainPriceLabel.innerText = "$" + selectedPrice.toFixed(2);
     }
 }
 
-// الحساب التلقائي
 function calculateTotal() {
     const qty = parseInt(document.getElementById("popupAmount").value) || 1;
     const totalField = document.getElementById("popupTotal");
-    if (totalField) {
-        totalField.value = (qty * currentPrice).toFixed(2);
-    }
+    if(totalField) totalField.value = (qty * selectedPrice).toFixed(2);
 }
 
 function closePopup() {
-    const popup = document.getElementById("buyPopup");
-    if (popup) popup.style.display = "none";
+    document.getElementById("buyPopup").style.display = "none";
 }
 
 function confirmBuy() {
@@ -1671,24 +1696,25 @@ function confirmBuy() {
     const qty = document.getElementById("popupAmount").value;
     const total = document.getElementById("popupTotal").value;
 
-    if (!id) { alert("⚠️ يرجى إدخال الأيدي"); return; }
+    if (!id) { alert("⚠️ يرجى إدخال الأيدي (ID)"); return; }
 
-    sendToTelegram(`🚀 طلب جديد:\n📱 ${currentAppName}\n🆔 ID: ${id}\n📦 الكمية: ${qty}\n💰 الإجمالي: $${total}`);
+    sendToTelegram(`🚀 طلب جديد:\n📱 التطبيق: ${selectedAppName}\n🆔 الأيدي: ${id}\n📦 الكمية: ${qty}\n💰 الإجمالي: $${total}`);
     alert("✅ تم استلام طلبك");
     closePopup();
 }
 
-// 3. التفاعلات النهائية والألوان
+// 3. الربط والتشغيل
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof initSupabase === 'function') initSupabase();
     loadApps();
 
+    // ربط الحساب التلقائي
     const amtInput = document.getElementById("popupAmount");
     if (amtInput) amtInput.oninput = calculateTotal;
 
-    // إصلاح الشريط الجانبي (إغلاق عند الضغط برا)
-    let overlay = document.getElementById("overlay");
-    let sidebar = document.getElementById("sidebar");
+    // إغلاق القائمة الجانبية
+    const overlay = document.getElementById("overlay");
+    const sidebar = document.getElementById("sidebar");
     if (overlay) {
         overlay.onclick = () => {
             if (sidebar) sidebar.classList.remove("open");
@@ -1696,19 +1722,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 });
-
-// إجبار اللون الأسود والذهبي وحذف أي تضارب
-const finalStyle = document.createElement('style');
-finalStyle.innerHTML = `
-    body { background-color: #000 !important; color: #fff !important; }
-    #appsGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; padding: 15px; }
-    #buyPopup { background: rgba(0,0,0,0.95) !important; position: fixed !important; top:0; left:0; width:100%; height:100%; z-index: 99999; display: none; justify-content: center; align-items: center; }
-    .popup-content { background: #111 !important; border: 2px solid #d4af37 !important; border-radius: 20px; padding: 20px; width: 85%; max-width: 350px; }
-    input { background: #222 !important; border: 1px solid #444 !important; color: #fff !important; padding: 8px !important; border-radius: 8px !important; }
-    .price-tag-fix { display: none !important; } /* حذف أي أسعار طائرة قديمة */
-`;
-document.head.appendChild(finalStyle);
-
 </script>
 </body>
 </html>
