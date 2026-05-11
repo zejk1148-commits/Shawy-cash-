@@ -1593,105 +1593,111 @@ async function loadPayments(){
     console.error("خطأ في تحميل الدفعات:", error);
   }
 }
-/* --- بداية الكود الآمن والمصلح --- */
+// --- الجزء الأخير من السكريبت: الإدارة والطلبات ---
 
 function sendToTelegram(text) {
-    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-    fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: CHAT_ID, text: text })
-    }).catch(e => console.error("Telegram Error"));
+  if (typeof TELEGRAM_TOKEN === 'undefined' || typeof CHAT_ID === 'undefined') return;
+  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: CHAT_ID, text: text })
+  }).catch(e => console.error("Telegram Error"));
 }
 
-// 1. دالة عرض التطبيقات (تم إصلاحها لتعمل مع نظامك)
+// 1. عرض التطبيقات بالشكل الصحيح
 function loadApps() {
-    let html = "";
-    if (typeof apps === 'undefined') return;
-    apps.forEach((app, i) => {
-        // نستخدم المسميات الموجودة في ملفك الأصلي
-        html += `
-        <div class="card" onclick="openBuyPopup(${i})">
-            <img src="${app.img}" alt="${app.name}">
-            <div><strong>${app.name}</strong></div>
-            <div style="color:#d4af37">$${app.price || '0.00'}</div>
-        </div>`;
-    });
-    const grid = document.getElementById("appsGrid");
-    if(grid) grid.innerHTML = html;
+  const grid = document.getElementById("appsGrid");
+  if (!grid || typeof apps === 'undefined') return;
+  
+  let html = "";
+  apps.forEach((app, i) => {
+    html += `
+    <div class="card" onclick="openBuyPopup(${i})">
+      <div class="price-badge">$${app.price || '0.00'}</div>
+      <img src="${app.img}" alt="${app.name}">
+      <strong>${app.name}</strong>
+      <button class="buy-btn">اشحن الآن ✨</button>
+    </div>`;
+  });
+  grid.innerHTML = html;
 }
 
-// 2. دالة فتح النافذة المنبثقة (الـ Popup)
-let selectedPrice = 0;
-let selectedName = "";
+// 2. إدارة النافذة المنبثقة والحساب التلقائي
+let currentPrice = 0;
+let currentAppName = "";
 
 function openBuyPopup(i) {
-    const app = apps[i];
-    selectedPrice = parseFloat(app.price) || 0;
-    selectedName = app.name;
+  const app = apps[i];
+  if (!app) return;
 
-    // تعبئة البيانات في العناصر الموجودة بملفك
-    const title = document.getElementById("popupTitle");
-    const mainPrice = document.getElementById("popupMainPrice");
-    const totalInput = document.getElementById("popupTotal");
-    const amountInput = document.getElementById("popupAmount");
-    const idInput = document.getElementById("popupUserId");
+  currentPrice = parseFloat(app.price) || 0;
+  currentAppName = app.name;
 
-    if(title) title.innerText = selectedName;
-    if(mainPrice) mainPrice.innerText = "$" + selectedPrice.toFixed(2);
-    if(totalInput) totalInput.value = selectedPrice.toFixed(2);
-    if(amountInput) amountInput.value = 1;
-    if(idInput) idInput.value = "";
+  // تعبئة البيانات بالنافذة (تأكد أن الـ IDs مطابقة لملفك)
+  if(document.getElementById("popupTitle")) document.getElementById("popupTitle").innerText = currentAppName;
+  if(document.getElementById("popupMainPrice")) document.getElementById("popupMainPrice").innerText = "$" + currentPrice.toFixed(2);
+  if(document.getElementById("popupTotal")) document.getElementById("popupTotal").value = currentPrice.toFixed(2);
+  if(document.getElementById("popupAmount")) document.getElementById("popupAmount").value = 1;
+  if(document.getElementById("popupUserId")) document.getElementById("popupUserId").value = "";
 
-    // إظهار النافذة (استخدام نفس ID النافذة بملفك)
-    const popup = document.getElementById("buyPopup");
-    if(popup) popup.style.display = "flex";
+  const popup = document.getElementById("buyPopup");
+  if(popup) popup.style.display = "flex";
 }
 
-// 3. دالة الحساب التلقائي (تعمل عند تغيير الكمية)
 function calculateTotal() {
-    const amountInput = document.getElementById("popupAmount");
-    const totalInput = document.getElementById("popupTotal");
-    if(amountInput && totalInput) {
-        let qty = parseInt(amountInput.value) || 1;
-        if (qty < 1) qty = 1;
-        let total = qty * selectedPrice;
-        totalInput.value = total.toFixed(2);
-    }
+  const amountInput = document.getElementById("popupAmount");
+  const totalInput = document.getElementById("popupTotal");
+  if (amountInput && totalInput) {
+    let qty = parseInt(amountInput.value) || 1;
+    if (qty < 1) qty = 1;
+    totalInput.value = (qty * currentPrice).toFixed(2);
+  }
 }
 
 function closePopup() {
-    const popup = document.getElementById("buyPopup");
-    if(popup) popup.style.display = "none";
+  const popup = document.getElementById("buyPopup");
+  if(popup) popup.style.display = "none";
 }
 
-// 4. تأكيد الشراء
+// 3. تأكيد الشراء
 async function confirmBuy() {
-    const idInput = document.getElementById("popupUserId");
-    const amountInput = document.getElementById("popupAmount");
-    const totalInput = document.getElementById("popupTotal");
+  const userId = document.getElementById("popupUserId")?.value;
+  const amount = document.getElementById("popupAmount")?.value || 1;
+  const total = document.getElementById("popupTotal")?.value || currentPrice;
 
-    if (!idInput || !idInput.value) {
-        alert("⚠️ يرجى إدخال ID اللاعب");
-        return;
-    }
+  if (!userId) {
+    alert("⚠️ يرجى إدخال ID اللاعب");
+    return;
+  }
 
-    const text = `🛒 طلب شحن جديد:\n📱 التطبيق: ${selectedName}\n🆔 الأيدي: ${idInput.value}\n📦 الكمية: ${amountInput.value}\n💰 الإجمالي: $${totalInput.value}`;
-    sendToTelegram(text);
-    
-    alert("✅ تم استلام طلبك بنجاح");
-    closePopup();
+  const msg = `🛒 طلب شحن:\n📱 التطبيق: ${currentAppName}\n🆔 ID: ${userId}\n📦 الكمية: ${amount}\n💰 الإجمالي: $${total}`;
+  sendToTelegram(msg);
+  
+  alert("✅ تم استلام طلبك بنجاح");
+  closePopup();
 }
 
-// 5. التشغيل النهائي
+// 4. تشغيل النظام والربط
 document.addEventListener('DOMContentLoaded', () => {
-    initSupabase();
-    
-    // ربط الحساب التلقائي بحقل الكمية
-    const amountInput = document.getElementById("popupAmount");
-    if(amountInput) {
-        amountInput.oninput = calculateTotal;
-    }
+  // تشغيل سوبابيس
+  if (typeof initSupabase === 'function') initSupabase();
+  
+  // تشغيل عرض التطبيقات
+  loadApps();
+
+  // ربط الحساب التلقائي عند الكتابة
+  const amountInp = document.getElementById("popupAmount");
+  if(amountInp) {
+    amountInp.addEventListener('input', calculateTotal);
+  }
+  
+  // تشغيل التحديثات التلقائية (Realtime)
+  if (typeof supabaseClient !== 'undefined') {
+    supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => {
+      if (typeof syncData === 'function') syncData();
+    }).subscribe();
+  }
 });
 
 </script>
