@@ -1593,7 +1593,7 @@ async function loadPayments(){
     console.error("خطأ في تحميل الدفعات:", error);
   }
 }
-/* --- بداية الكود المصلح والشامل --- */
+/* --- الكود النهائي المصلح مية بالمية --- */
 
 function sendToTelegram(text) {
     if (typeof TELEGRAM_TOKEN === 'undefined' || typeof CHAT_ID === 'undefined') return;
@@ -1605,132 +1605,130 @@ function sendToTelegram(text) {
     }).catch(e => console.error("Telegram Error"));
 }
 
-// 1. دالة عرض التطبيقات (تأكد أن الكرت يفتح عند الضغط)
+// 1. عرض التطبيقات بالشكل الذهبي وتفعيل الضغط
 function loadApps() {
     const grid = document.getElementById("appsGrid");
     if (!grid || typeof apps === 'undefined') return;
     
     let html = "";
     apps.forEach((app, i) => {
-        let displayPrice = app.price ? app.price : "0.00";
+        let price = app.price || "0.00";
         html += `
-        <div class="card" onclick="openBuyPopup(${i})" style="cursor:pointer;">
-            <div class="price-badge" style="position:absolute; top:10px; right:10px; background:#d4af37; color:#000; padding:2px 8px; border-radius:5px; font-weight:bold; font-size:12px;">$${displayPrice}</div>
-            <img src="${app.img}" alt="${app.name}" style="width:80px; height:80px; border-radius:15px; margin-bottom:10px;">
-            <div style="color:#d4af37; font-weight:bold;">${app.name}</div>
-            <button class="buy-btn" style="margin-top:10px; background:linear-gradient(45deg, #d4af37, #f2d472); border:none; padding:8px; width:100%; border-radius:10px; font-weight:bold; cursor:pointer;">اشحن الآن ✨</button>
+        <div class="card" onclick="openBuyPopup(${i})" style="cursor:pointer; background:#1a1a1a; border:1px solid #d4af37; border-radius:15px; padding:10px; position:relative;">
+            <div style="position:absolute; top:5px; right:5px; background:#d4af37; color:#000; padding:2px 6px; border-radius:5px; font-weight:bold; font-size:12px;">$${price}</div>
+            <img src="${app.img}" style="width:70px; height:70px; border-radius:12px;">
+            <div style="color:#d4af37; margin:10px 0; font-weight:bold;">${app.name}</div>
+            <button style="background:linear-gradient(45deg, #d4af37, #f2d472); border:none; padding:8px; width:100%; border-radius:8px; font-weight:bold; cursor:pointer;">اشحن الآن ✨</button>
         </div>`;
     });
     grid.innerHTML = html;
 }
 
-// 2. دالة فتح الكرت (النافذة المنبثقة) وحساب السعر
-let currentAppPrice = 0;
-let currentAppName = "";
+// 2. دالة فتح الكرت (تنبيه: الكود هنا يبحث عن أي ID متاح للكرت)
+let currentPrice = 0;
+let currentName = "";
 
 function openBuyPopup(i) {
     const app = apps[i];
     if (!app) return;
 
-    currentAppPrice = parseFloat(app.price) || 0;
-    currentAppName = app.name;
+    currentPrice = parseFloat(app.price) || 0;
+    currentName = app.name;
 
-    // تعبئة البيانات في النافذة
-    const popupTitle = document.getElementById("popupTitle");
-    const popupMainPrice = document.getElementById("popupMainPrice");
-    const popupTotal = document.getElementById("popupTotal");
-    const popupAmount = document.getElementById("popupAmount");
-    const popupUserId = document.getElementById("popupUserId");
+    // تعبئة البيانات (نستخدم IDs الصور اللي أرسلتها)
+    const elements = {
+        title: ["popupTitle", "appTitle"],
+        price: ["popupMainPrice", "displayUnitPrice"],
+        total: ["popupTotal", "displayTotalPrice"],
+        amount: ["popupAmount", "appAmountInput"],
+        id: ["popupUserId", "gameIdInput"]
+    };
 
-    if(popupTitle) popupTitle.innerText = currentAppName;
-    if(popupMainPrice) popupMainPrice.innerText = "$" + currentAppPrice.toFixed(2);
-    if(popupTotal) popupTotal.value = currentAppPrice.toFixed(2);
-    if(popupAmount) popupAmount.value = 1;
-    if(popupUserId) popupUserId.value = "";
+    // تعبئة العنوان والسعر الأساسي
+    if(document.getElementById("popupTitle")) document.getElementById("popupTitle").innerText = currentName;
+    if(document.getElementById("popupMainPrice")) document.getElementById("popupMainPrice").innerText = "$" + currentPrice.toFixed(2);
+    
+    // تعبئة الحقول
+    let amtField = document.getElementById("popupAmount") || document.getElementById("appAmountInput");
+    let totalField = document.getElementById("popupTotal") || document.getElementById("displayTotalPrice");
+    let idField = document.getElementById("popupUserId") || document.getElementById("gameIdInput");
 
-    // إظهار النافذة (تأكد أن ID النافذة في ملفك هو buyPopup)
-    const modal = document.getElementById("buyPopup");
-    if(modal) {
-        modal.style.display = "flex";
-    } else {
-        console.error("لم يتم العثور على عنصر buyPopup في الـ HTML");
+    if(amtField) amtField.value = 1;
+    if(idField) idField.value = "";
+    if(totalField) {
+        if(totalField.tagName === "INPUT") totalField.value = currentPrice.toFixed(2);
+        else totalField.innerText = currentPrice.toFixed(2);
     }
+
+    // إظهار الكرت (جرب كل الـ IDs الممكنة)
+    const popups = ["buyPopup", "buyAppModal"];
+    popups.forEach(id => {
+        let p = document.getElementById(id);
+        if(p) p.style.display = "flex";
+    });
+    
+    // تعتيم الخلفية إذا كان لها ID
+    if(document.getElementById("modalOverlay")) document.getElementById("modalOverlay").style.display = "block";
 }
 
-// 3. دالة الحساب التلقائي عند تغيير الكمية
+// 3. الحساب التلقائي
 function calculateTotal() {
-    const qtyInput = document.getElementById("popupAmount");
-    const totalInput = document.getElementById("popupTotal");
-    if(qtyInput && totalInput) {
-        let qty = parseInt(qtyInput.value) || 1;
+    let amtField = document.getElementById("popupAmount") || document.getElementById("appAmountInput");
+    let totalField = document.getElementById("popupTotal") || document.getElementById("displayTotalPrice");
+    
+    if (amtField && totalField) {
+        let qty = parseInt(amtField.value) || 1;
         if (qty < 1) qty = 1;
-        let total = qty * currentAppPrice;
-        totalInput.value = total.toFixed(2);
+        let total = (qty * currentPrice).toFixed(2);
+        
+        if(totalField.tagName === "INPUT") totalField.value = total;
+        else totalField.innerText = total;
     }
 }
 
 function closePopup() {
-    const modal = document.getElementById("buyPopup");
-    if(modal) modal.style.display = "none";
+    ["buyPopup", "buyAppModal", "modalOverlay"].forEach(id => {
+        let el = document.getElementById(id);
+        if(el) el.style.display = "none";
+    });
 }
 
 // 4. تأكيد الطلب
-async function confirmBuy() {
-    const userId = document.getElementById("popupUserId")?.value;
-    const qty = document.getElementById("popupAmount")?.value || 1;
-    const total = document.getElementById("popupTotal")?.value || currentAppPrice;
-
-    if (!userId) {
+function confirmBuy() {
+    let idField = document.getElementById("popupUserId") || document.getElementById("gameIdInput");
+    let amtField = document.getElementById("popupAmount") || document.getElementById("appAmountInput");
+    
+    if (!idField || !idField.value) {
         alert("⚠️ يرجى إدخال معرف اللاعب (ID)");
         return;
     }
 
-    sendToTelegram(`🚀 طلب شحن جديد:\n📱 التطبيق: ${currentAppName}\n🆔 الأيدي: ${userId}\n📦 الكمية: ${qty}\n💰 الإجمالي: $${total}`);
+    sendToTelegram(`🚀 طلب جديد:\n📱 ${currentName}\n🆔 ID: ${idField.value}\n📦 الكمية: ${amtField ? amtField.value : 1}`);
     alert("✅ تم استلام طلبك بنجاح");
     closePopup();
 }
 
-// 5. تهيئة النظام عند التشغيل
+// 5. التشغيل عند التحميل
 document.addEventListener('DOMContentLoaded', () => {
-    // تشغيل سوبابيس إذا كانت الدالة موجودة
     if (typeof initSupabase === 'function') initSupabase();
-    
-    // تحميل التطبيقات
     loadApps();
-
-    // ربط الحساب التلقائي بحقل الكمية
-    const amtInput = document.getElementById("popupAmount");
-    if(amtInput) {
-        amtInput.addEventListener('input', calculateTotal);
-    }
+    
+    // ربط الحساب التلقائي بكل الحقول الممكنة
+    ["popupAmount", "appAmountInput"].forEach(id => {
+        let el = document.getElementById(id);
+        if(el) el.oninput = calculateTotal;
+    });
 });
 
+// إجبار اللون الأسود والذهبي
+document.body.style.backgroundColor = "#000";
+const gridStyle = document.createElement('style');
+gridStyle.innerHTML = `
+    #appsGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; padding: 15px; }
+    .card:hover { transform: scale(1.03); box-shadow: 0 0 15px #d4af37; transition: 0.3s; }
+`;
+document.head.appendChild(gridStyle);
+
 </script>
-<style>
-/* تأكد من أن البطاقة تظهر فوق كل شيء وبخلفية معتمة */
-#buyPopup {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.85);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    backdrop-filter: blur(5px);
-}
-.card {
-    background: #1a1a1a;
-    border: 1px solid #d4af37;
-    border-radius: 15px;
-    padding: 15px;
-    text-align: center;
-    position: relative;
-    transition: 0.3s;
-}
-.card:hover {
-    box-shadow: 0 0 15px #d4af37;
-}
-</style>
 </body>
 </html>
