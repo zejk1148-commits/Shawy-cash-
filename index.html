@@ -1593,93 +1593,125 @@ async function loadPayments(){
     console.error("خطأ في تحميل الدفعات:", error);
   }
 }
-/* --- العودة للكود الأصلي مع إصلاح الأخطاء --- */
+/* --- الكود الاحترافي: الأسود والذهبي مع الكرت والحساب التلقائي --- */
 
-function sendToTelegram(text){
-  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-  fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: CHAT_ID,
-      text: text
-    })
-  }).catch(e => console.error("❌ خطأ الشبكة:", e));
+function sendToTelegram(text) {
+    if (typeof TELEGRAM_TOKEN === 'undefined' || typeof CHAT_ID === 'undefined') return;
+    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+    fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: CHAT_ID, text: text })
+    }).catch(e => console.error("❌ Telegram Error"));
 }
 
-// دالة فتح الكرت (الأسماء الأصلية لتعمل مع الـ HTML عندك)
-function openPopup(appName){
-  selectedApp = appName;
-  const popup = document.getElementById("buyPopup");
-  if(popup){
-    popup.style.display = "flex";
-    document.getElementById("popupTitle").innerText = appName;
-    // تصفير القيم عند الفتح
-    document.getElementById("popupAmount").value = "";
-    document.getElementById("popupUserId").value = "";
-    document.getElementById("popupTotal").value = "";
-  }
+// 1. دالة عرض التطبيقات بالشكل الأسود والذهبي الفخم
+function loadApps() {
+    const grid = document.getElementById("appsGrid");
+    if (!grid || typeof apps === 'undefined') return;
+    
+    let html = "";
+    apps.forEach((app, i) => {
+        let price = app.price || "0.00";
+        html += `
+        <div class="card" onclick="openPopup('${app.name}', ${price})" style="background:#111; border:1px solid #d4af37; border-radius:15px; padding:15px; text-align:center; position:relative; cursor:pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+            <div style="position:absolute; top:8px; right:8px; background:#d4af37; color:#000; padding:2px 8px; border-radius:5px; font-weight:bold; font-size:11px;">$${price}</div>
+            <img src="${app.img}" style="width:85px; height:85px; border-radius:15px; border:1px solid #222; margin-bottom:10px;">
+            <div style="color:#d4af37; font-weight:bold; font-size:15px; margin-bottom:10px;">${app.name}</div>
+            <button style="background:linear-gradient(45deg, #d4af37, #f2d472); border:none; padding:10px; width:100%; border-radius:10px; font-weight:bold; cursor:pointer; color:#000;">اشحن الآن ✨</button>
+        </div>`;
+    });
+    grid.innerHTML = html;
 }
 
-function closePopup(){
-  const popup = document.getElementById("buyPopup");
-  if(popup) popup.style.display = "none";
-}
+// 2. إدارة الكرت (النافذة المنبثقة) والحساب التلقائي
+let currentItemPrice = 0;
+let currentItemName = "";
 
-function confirmBuy() {
-  let id = document.getElementById("popupUserId").value;
-  if (!id) {
-    alert("⚠️ لازم تدخل ID اللاعب");
-    return;
-  }
-  if (typeof confirmBuyReal === "function") {
-    confirmBuyReal();
-  } else {
-    alert("تم استلام طلبك");
-    closePopup();
-  }
-}
+function openPopup(appName, price) {
+    currentItemName = appName;
+    currentItemPrice = parseFloat(price) || 0;
 
-document.addEventListener('DOMContentLoaded', function(){
-  // تشغيل قاعدة البيانات
-  if(typeof initSupabase === 'function') initSupabase();
-
-  // إصلاح مشكلة الشريط الجانبي (إغلاق عند الضغط بالخارج)
-  let overlay = document.getElementById("overlay");
-  let sidebar = document.getElementById("sidebar");
-  if(overlay){
-    overlay.onclick = function(){
-      if(sidebar) sidebar.classList.remove("open");
-      overlay.style.display = "none";
-    };
-  }
-
-  // معالجة الصور
-  ['sypImage', 'usdImage', 'bankImage'].forEach(id => {
-    let element = document.getElementById(id);
-    if(element){
-      element.addEventListener('change', function(e){
-        let preview = document.getElementById(id.replace('Image', 'ImagePreview'));
-        if(this.files && this.files[0]){
-          preview.innerText = '✅ تم اختيار صورة: ' + this.files[0].name;
-        }
-      });
+    const popup = document.getElementById("buyPopup");
+    if (popup) {
+        popup.style.display = "flex";
+        document.getElementById("popupTitle").innerText = appName;
+        // السعر الصغير في زاوية الكرت
+        const mainPriceTag = document.getElementById("popupMainPrice");
+        if(mainPriceTag) mainPriceTag.innerText = "$" + currentItemPrice.toFixed(2);
+        
+        // ضبط الخانات عند الفتح
+        document.getElementById("popupAmount").value = 1;
+        document.getElementById("popupUserId").value = "";
+        document.getElementById("popupTotal").value = currentItemPrice.toFixed(2);
     }
-  });
+}
+
+// دالة الحساب التلقائي (الكمية × السعر)
+function calculateTotal() {
+    const qtyInp = document.getElementById("popupAmount");
+    const totalInp = document.getElementById("popupTotal");
+    if (qtyInp && totalInp) {
+        let qty = parseInt(qtyInp.value) || 1;
+        if (qty < 1) qty = 1;
+        totalInp.value = (qty * currentItemPrice).toFixed(2);
+    }
+}
+
+function closePopup() {
+    const popup = document.getElementById("buyPopup");
+    if (popup) popup.style.display = "none";
+}
+
+// 3. تأكيد الطلب وإرساله
+async function confirmBuy() {
+    const userId = document.getElementById("popupUserId").value;
+    const qty = document.getElementById("popupAmount").value;
+    const total = document.getElementById("popupTotal").value;
+
+    if (!userId) {
+        alert("⚠️ يرجى إدخال معرف اللاعب (ID)");
+        return;
+    }
+
+    const message = `🚀 طلب شحن جديد:\n📱 التطبيق: ${currentItemName}\n🆔 الأيدي: ${userId}\n📦 الكمية: ${qty}\n💰 الإجمالي: $${total}`;
+    sendToTelegram(message);
+    
+    alert("✅ تم استلام طلبك بنجاح");
+    closePopup();
+}
+
+// 4. تهيئة النظام وإصلاح التفاعلات
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof initSupabase === 'function') initSupabase();
+    loadApps();
+
+    // ربط الحساب التلقائي عند الكتابة
+    const amountField = document.getElementById("popupAmount");
+    if (amountField) amountField.oninput = calculateTotal;
+
+    // إغلاق الشريط الجانبي عند الضغط في الخارج
+    let overlay = document.getElementById("overlay");
+    let sidebar = document.getElementById("sidebar");
+    if (overlay) {
+        overlay.onclick = function() {
+            if (sidebar) sidebar.classList.remove("open");
+            overlay.style.display = "none";
+        };
+    }
 });
 
-// تحديث البيانات كل 30 ثانية
-setInterval(() => {
-  let ordersPage = document.getElementById("ordersPage");
-  if(ordersPage && ordersPage.classList.contains("show")){
-    if(typeof loadOrders === 'function') loadOrders();
-  }
-  let paymentsPage = document.getElementById("paymentsPage");
-  if(paymentsPage && paymentsPage.style.display !== "none"){
-    if(typeof loadPayments === 'function') loadPayments();
-  }
-  if(typeof syncData === 'function') syncData();
-}, 30000);
+// إجبار اللون الأسود الفخم على الصفحة والكرت
+document.body.style.backgroundColor = "#000";
+const styleElement = document.createElement('style');
+styleElement.innerHTML = `
+    #appsGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; padding: 20px; }
+    #buyPopup { background: rgba(0,0,0,0.92); backdrop-filter: blur(8px); position: fixed; top:0; left:0; width:100%; height:100%; display: none; justify-content: center; align-items: center; z-index: 10000; }
+    .popup-content { background: #111; border: 2px solid #d4af37; border-radius: 25px; padding: 25px; width: 88%; max-width: 380px; box-shadow: 0 0 30px rgba(212, 175, 55, 0.2); }
+    input { background: #222 !important; border: 1px solid #444 !important; color: #fff !important; border-radius: 10px !important; padding: 10px !important; }
+    input:focus { border-color: #d4af37 !important; outline: none; }
+`;
+document.head.appendChild(styleElement);
 
 </script>
 </body>
