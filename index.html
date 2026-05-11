@@ -1593,99 +1593,142 @@ async function loadPayments(){
     console.error("خطأ في تحميل الدفعات:", error);
   }
 }
+/* --- الجزء الأخير من السكريبت --- */
 
-function sendToTelegram(text){
-  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-  
-  fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: CHAT_ID,
-      text: text
-    })
-  })
-  .then(r => r.json())
-  .then(data => {
-    if(data.ok) {
-      console.log("✅ تم إرسال الرسالة للتليجرام");
-    } else {
-      console.error("❌ خطأ التليجرام:", data.description);
-    }
-  })
-  .catch(e => console.error("❌ خطأ الشبكة:", e));
+function sendToTelegram(text) {
+    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+    fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: CHAT_ID, text: text })
+    }).catch(e => console.error("❌ Telegram Error:", e));
 }
 
-document.addEventListener('DOMContentLoaded', function(){
-  initSupabase();
-  document.getElementById("successPopup").style.display="none";
-  
-  ['sypImage', 'usdImage', 'bankImage'].forEach(id => {
-    let element = document.getElementById(id);
-    if(element){
-      element.addEventListener('change', function(e){
-        let preview = document.getElementById(id.replace('Image', 'ImagePreview'));
-        if(this.files && this.files[0]){
-          preview.innerText = '✅ تم اختيار صورة: ' + this.files[0].name;
-        }
-      });
-    }
-  });
-  
-  let overlay=document.getElementById("overlay");
-  let sidebar=document.getElementById("sidebar");
-  if(overlay){
-    overlay.onclick=()=>{
-      sidebar.classList.remove("open");
-      overlay.style.display="none";
-    };
-  }
-});
-
-setInterval(() => {
-  let ordersPage = document.getElementById("ordersPage");
-  if(ordersPage && ordersPage.classList.contains("show")){
-    loadOrders();
-  }
-  let paymentsPage = document.getElementById("paymentsPage");
-  if(paymentsPage && paymentsPage.style.display!=="none"){
-    loadPayments();
-  }
-  syncData();
-}, 30000);
-// كودك القديم فوق
-function openPopup(appName){
-  selectedApp = appName;
-  document.getElementById("buyPopup").style.display = "flex";
-  document.getElementById("popupTitle").innerText = appName;
+// دالة التحديث الفوري (Realtime) لسرعة البرق
+function setupRealtime() {
+    if (!supabaseClient) return;
+    
+    // مراقبة جدول الطلبات والمدفوعات
+    supabaseClient
+        .channel('schema-db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            console.log("🔄 تحديث فوري للطلبات...");
+            if(document.getElementById("ordersPage").classList.contains("show")) loadOrders();
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => {
+            console.log("💰 تحديث فوري للرصيد...");
+            updateBalance();
+        })
+        .subscribe();
 }
 
-function closePopup(){
-  document.getElementById("buyPopup").style.display = "none";
-  document.getElementById("popupAmount").value = "";
-  document.getElementById("popupUserId").value = "";
-  document.getElementById("popupTotal").value = "";
-  document.getElementById("popupMainPrice").innerText = "$0.00";
+// دالة تحميل التطبيقات بالشكل الذهبي الصحيح
+function loadApps() {
+    let html = "";
+    if (typeof apps === 'undefined' || apps.length === 0) return;
+
+    apps.forEach((app, i) => {
+        // استخدمنا الـ Backticks لضمان ظهور الكرت
+        html += `
+        <div class="card" onclick="openApp(${i})" style="border: 1px solid #d4af37; background: linear-gradient(145deg, #1a1a1a, #000); border-radius: 15px; padding: 15px; text-align: center; transition: 0.3s; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.1);">
+            <img src="${app.img}" alt="${app.name}" style="width: 80px; height: 80px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #d4af37;">
+            <div style="color: #d4af37; font-weight: bold; font-size: 14px;">${app.name}</div>
+        </div>`;
+    });
+    document.getElementById("appsGrid").innerHTML = html;
+}
+
+// دالة فتح كرت البيانات عند الضغط على تطبيق
+function openApp(i) {
+    hideAll();
+    const appPage = document.getElementById("appPage");
+    if(appPage) {
+        appPage.style.display = "block";
+        document.getElementById("title").innerText = apps[i].name;
+        selectedApp = apps[i].name;
+        // تصفير الحقول
+        if(document.getElementById("gameIdInput")) document.getElementById("gameIdInput").value = "";
+        if(document.getElementById("appAmount")) document.getElementById("appAmount").value = "";
+        if(document.getElementById("appPrice")) document.getElementById("appPrice").innerText = "0.00";
+    }
+}
+
+function closePopup() {
+    const popup = document.getElementById("buyPopup");
+    if(popup) popup.style.display = "none";
 }
 
 function confirmBuy() {
-  let id = document.getElementById("popupUserId").value;
-  if (!id) {
-    alert("⚠️ اللاعب ID لازم تدخل");
-    return;
-  }
-  if (typeof confirmBuyReal === "function") {
-    confirmBuyReal();
-  } else {
-    alert("تم استلام طلبك");
-    closePopup();
-  }
+    let id = document.getElementById("popupUserId")?.value;
+    if (!id) {
+        alert("⚠️ عذراً.. يرجى إدخال ID اللاعب أولاً");
+        return;
+    }
+    if (typeof confirmBuyReal === "function") {
+        confirmBuyReal();
+    } else {
+        alert("✅ تم استلام طلبك بنجاح");
+        closePopup();
+    }
 }
-// تشغيل النظام عند تحميل الصفحة
-document.addEventListener('DOMContentLoaded', () => {
+
+// عند تحميل الصفحة بالكامل
+document.addEventListener('DOMContentLoaded', function() {
     initSupabase();
+    setupRealtime(); // تفعيل التحديث الفوري
+    
+    // إخفاء النوافذ المنبثقة افتراضياً
+    if(document.getElementById("successPopup")) document.getElementById("successPopup").style.display = "none";
+    
+    // تنسيق شكل الصور المرفوعة
+    ['sypImage', 'usdImage', 'bankImage'].forEach(id => {
+        let element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', function() {
+                let preview = document.getElementById(id.replace('Image', 'ImagePreview'));
+                if (this.files && this.files[0]) {
+                    preview.style.color = "#d4af37";
+                    preview.innerText = '⭐ تم اختيار: ' + this.files[0].name;
+                }
+            });
+        }
+    });
+
+    // إغلاق القائمة الجانبية عند الضغط على الخلفية
+    let overlay = document.getElementById("overlay");
+    if (overlay) {
+        overlay.onclick = () => {
+            document.getElementById("sidebar").classList.remove("open");
+            overlay.style.display = "none";
+        };
+    }
 });
 
+// إلغاء الـ setInterval القديم واستبداله بـ Realtime لسرعة الموقع
 </script>
+
+<style>
+/* إضافة لمسة ذهبية احترافية */
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.4) !important;
+    cursor: pointer;
+}
+button {
+    background: linear-gradient(to right, #d4af37, #f2d472) !important;
+    color: black !important;
+    font-weight: bold !important;
+    border: none !important;
+    transition: 0.3s !important;
+}
+button:hover {
+    filter: brightness(1.2);
+    box-shadow: 0 0 10px #d4af37;
+}
+body {
+    background-color: #000 !important;
+    color: #fff;
+}
+</style>
 </body>
 </html>
