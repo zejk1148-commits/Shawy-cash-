@@ -519,12 +519,16 @@ height:80px;
 <h3>💳 الدفعات</h3>
 <button onclick="showAllPayments()">عرض الدفعات</button>
   <div id="manageAppsSection" style="padding: 20px; direction: rtl; color: white; background: #141414; border-radius: 15px; border: 1.5px solid #d4af37; margin: 20px auto; max-width: 800px; font-family: sans-serif;">
-  <h3 style="color: #d4af37; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; text-align: right;">✨ إضافة تطبيق أو لعبة جديدة</h3>
+  <h3 style="color: #d4af37; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; text-align: right;">✨ إضافة حزمة أو تطبيق جديد</h3>
   
   <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; background: #1a1a1a; padding: 15px; border-radius: 12px; border: 1px solid #222;">
-    <div style="flex: 2; min-width: 200px;">
-      <label style="display:block; font-size:12px; color:#aaa; margin-bottom:8px; text-align: right;">اسم التطبيق</label>
-      <input type="text" id="newAppName" placeholder="مثال: ببجي موبايل" style="width:100%; padding:12px; background:#252525; border:1px solid #333; color:white; border-radius:8px; outline: none; direction: rtl;">
+    <div style="flex: 2; min-width: 180px;">
+      <label style="display:block; font-size:12px; color:#aaa; margin-bottom:8px; text-align: right;">اسم التطبيق / الحزمة</label>
+      <input type="text" id="newAppName" placeholder="مثال: ببجي (60 شدة)" style="width:100%; padding:12px; background:#252525; border:1px solid #333; color:white; border-radius:8px; outline: none; direction: rtl;">
+    </div>
+    <div style="flex: 1; min-width: 120px;">
+      <label style="display:block; font-size:12px; color:#aaa; margin-bottom:8px; text-align: right;">الكمية (شدة/جوهرة)</label>
+      <input type="number" id="newAppQuantity" placeholder="مثال: 60" style="width:100%; padding:12px; background:#252525; border:1px solid #333; color:white; border-radius:8px; outline: none; text-align: center;">
     </div>
     <div style="flex: 1; min-width: 100px;">
       <label style="display:block; font-size:12px; color:#aaa; margin-bottom:8px; text-align: right;">السعر ($)</label>
@@ -546,6 +550,7 @@ height:80px;
         <tr style="border-bottom: 2px solid #d4af37; color: #d4af37;">
           <th style="padding: 10px; text-align: right;">الشعار</th>
           <th style="padding: 10px; text-align: right;">اسم التطبيق</th>
+          <th style="padding: 10px; text-align: right;">الكمية</th>
           <th style="padding: 10px; text-align: right;">السعر الأساسي</th>
           <th style="padding: 10px; text-align: center; width: 100px;">إجراءات</th>
         </tr>
@@ -555,7 +560,7 @@ height:80px;
     </table>
   </div>
 </div>
-
+طخخگكخهﻧ
 </div>
 </div>
 <div id="adminDetails" style="display:none;"></div>
@@ -1600,4 +1605,78 @@ async function approveOrder(orderId){
   loadOrders();
 }
 
+// رفض الطلب
+async function rejectOrder(orderId){
+  const { error } = await supabaseClient
+    .from("orders")
+    .update({ status: "rejected", completed: true })
+    .eq("id", orderId);
 
+  if(error){
+    alert("❌ خطأ: " + error.message);
+    return;
+  }
+
+  alert("❌ تم رفض الطلب");
+  loadOrders();
+}
+async function loadPayments(){
+  try {
+    const user = getUser();
+    if(!user.id){
+      document.getElementById("paymentsList").innerHTML='<div style="text-align:center;padding:40px;"><p style="font-size:18px;">❌ لا يوجد مستخدم</p></div>';
+      return;
+    }
+    
+    const { data: payments } = await supabaseClient.from("payments").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    
+    let html='<h3>دفعاتي</h3>';
+    
+    if(!payments || payments.length === 0){
+      html+='<div style="text-align:center;padding:40px;"><p style="font-size:18px;">📭 لا يوجد دفعات</p></div>';
+    } else {
+      payments.forEach(p=>{
+        let statusText=p.status==="approved"?"✅ موافق":p.status==="rejected"?"❌ مرفوض":"⏳ قيد الانتظار";
+        let statusClass=p.status==="approved"?"completed":p.status==="rejected"?"rejected":"";
+        html+=`<div class="order-item ${statusClass}"><h3>${p.method}</h3><p><strong>المبلغ:</strong> ${p.amount} ${p.currency}</p><p><strong>بالدولار:</strong> $${p.usd_amount.toFixed(2)}</p><p><strong>📅 التاريخ:</strong> ${new Date(p.created_at).toLocaleDateString('ar-EG')}</p><p><strong>⏰ الوقت:</strong> ${new Date(p.created_at).toLocaleTimeString('ar-EG')}</p><div class="status ${p.status}"><span style="color: #2ecc71;">${statusText}</span></div></div>`;
+      });
+    }
+    
+    document.getElementById("paymentsList").innerHTML=html;
+  } catch(error) {
+    console.error("خطأ في تحميل الدفعات:", error);
+  }
+}
+  function sendToTelegram(text){
+  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+  
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: text
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if(data.ok) {
+      console.log("✅ تم إرسال الرسالة للتليجرام");
+    } else {
+      console.error("❌ خطأ التليجرام:", data.description);
+    }
+  })
+  .catch(e => console.error("❌ خطأ الشبكة:", e));
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  if (typeof initSupabase === "function") initSupabase();
+  
+  const successPopup = document.getElementById("successPopup");
+  if(successPopup) successPopup.style.display="none";
+  
+  ['sypImage', 'usdImage', 'bankImage'].forEach(id => {
+    let element = document.getElementById(id);
+    if(element){
+      element.addEventListener('change', function(e){
+        let preview = document.getElementById(id.re
