@@ -480,14 +480,20 @@ height:80px;
     </div>
 </div>
 
+<div id="home" style="display:none; background: #0f0f0f; min-height: 100vh; font-family: sans-serif;">
+    <div class="header" style="background: linear-gradient(to bottom, #1a1a1a, #0f0f0f); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #d4af37; position: sticky; top: 0; z-index: 100;">
+        <div onclick="toggleSidebar()" style="cursor:pointer; color:#d4af37; font-size:24px;">☰</div>
+        <div id="balanceText" style="background: rgba(212, 175, 55, 0.1); padding: 8px 15px; border-radius: 20px; border: 1px solid #d4af37; color: #d4af37; font-weight: bold; font-size: 14px;">
+            الرصيد: <span style="color: #fff;">$0.00</span>
+        </div>
+    </div>
 
-<div id="home" style="display:none">
-<div class="header">
-<div onclick="toggle()" style="cursor:pointer;font-size:20px;">☰</div>
-<div id="balanceText">الرصيد: $0.00</div>
+    <div style="padding: 20px;">
+        <div class="grid" id="appsGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+            </div>
+    </div>
 </div>
-<div class="grid" id="appsGrid"></div>
-</div>
+
 
 <div id="adminPage" style="display:none;">
 <div class="header">
@@ -512,6 +518,44 @@ height:80px;
 <div class="admin-card">
 <h3>💳 الدفعات</h3>
 <button onclick="showAllPayments()">عرض الدفعات</button>
+  <div id="manageAppsSection" style="padding: 20px; direction: rtl; color: white; background: #141414; border-radius: 15px; border: 1.5px solid #d4af37; margin: 20px auto; max-width: 800px; font-family: sans-serif;">
+  <h3 style="color: #d4af37; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; text-align: right;">✨ إضافة تطبيق أو لعبة جديدة</h3>
+  
+  <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; background: #1a1a1a; padding: 15px; border-radius: 12px; border: 1px solid #222;">
+    <div style="flex: 2; min-width: 200px;">
+      <label style="display:block; font-size:12px; color:#aaa; margin-bottom:8px; text-align: right;">اسم التطبيق</label>
+      <input type="text" id="newAppName" placeholder="مثال: ببجي موبايل" style="width:100%; padding:12px; background:#252525; border:1px solid #333; color:white; border-radius:8px; outline: none; direction: rtl;">
+    </div>
+    <div style="flex: 1; min-width: 100px;">
+      <label style="display:block; font-size:12px; color:#aaa; margin-bottom:8px; text-align: right;">السعر ($)</label>
+      <input type="number" id="newAppPrice" step="0.01" placeholder="0.00" style="width:100%; padding:12px; background:#252525; border:1px solid #333; color:white; border-radius:8px; outline: none; text-align: center;">
+    </div>
+    <div style="flex: 2; min-width: 200px;">
+      <label style="display:block; font-size:12px; color:#aaa; margin-bottom:8px; text-align: right;">شعار التطبيق (صورة)</label>
+      <input type="file" id="newAppImage" accept="image/*" style="width:100%; padding:9px; background:#252525; border:1px solid #333; color:white; border-radius:8px; outline: none;">
+    </div>
+    <div style="width: 100%; margin-top: 10px;">
+      <button onclick="addNewApp()" style="background: linear-gradient(to right, #d4af37, #f2d06b); color: black; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; width: 100%;">إدراج وتفعيل بالمتجر ➕</button>
+    </div>
+  </div>
+
+  <h4 style="color: #aaa; margin-bottom: 15px; text-align: right;">📋 التطبيقات المعروضة حالياً بالمتجر</h4>
+  <div style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse; text-align: right; direction: rtl;">
+      <thead>
+        <tr style="border-bottom: 2px solid #d4af37; color: #d4af37;">
+          <th style="padding: 10px; text-align: right;">الشعار</th>
+          <th style="padding: 10px; text-align: right;">اسم التطبيق</th>
+          <th style="padding: 10px; text-align: right;">السعر الأساسي</th>
+          <th style="padding: 10px; text-align: center; width: 100px;">إجراءات</th>
+        </tr>
+      </thead>
+      <tbody id="adminAppsTableBody">
+        </tbody>
+    </table>
+  </div>
+</div>
+
 </div>
 </div>
 <div id="adminDetails" style="display:none;"></div>
@@ -1263,13 +1307,18 @@ function toggle(){
   document.getElementById("sidebar").classList.toggle("open");
   document.getElementById("overlay").style.display=document.getElementById("sidebar").classList.contains("open")?"block":"none";
 }
+
 function loadApps(){
   let html="";
   apps.forEach((app,i)=>{
-    html += `<div class="card" onclick="openBuyPopup(${i})">
-      <img src="${app.img}" alt="${app.name}">
-      <div><strong>${app.name}</strong></div>
-    </div>`;
+     html += `
+        <div class="app-card" onclick="openBuyPopup(${i})" style="background: #1a1a1a; border-radius: 20px; padding: 15px; text-align: center; border: 1px solid #333; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.5); position: relative; overflow: hidden; cursor: pointer;">
+            <div style="position: absolute; top: 0; right: 0; background: linear-gradient(135deg, #d4af37, #b8860b); width: 45px; height: 4px; border-bottom-left-radius: 5px;"></div>
+            <img src="${app.img}" alt="${app.name}" style="width: 80px; height: 80px; border-radius: 18px; margin-bottom: 12px; object-fit: cover; border: 1.5px solid #252525;">
+            <div style="color: #fff; font-size: 14px; margin-bottom: 8px; font-weight: bold;">${app.name}</div>
+            <div style="background: rgba(212, 175, 55, 0.1); color: #d4af37; font-size: 10px; padding: 5px 12px; border-radius: 12px; display: inline-block; border: 0.5px solid rgba(212,175,55,0.3); font-weight: bold;">اشحن الآن ✨</div>
+        </div>
+    `;
   });
   document.getElementById("appsGrid").innerHTML=html;
 }
@@ -1551,117 +1600,4 @@ async function approveOrder(orderId){
   loadOrders();
 }
 
-// رفض الطلب
-async function rejectOrder(orderId){
-  const { error } = await supabaseClient
-    .from("orders")
-    .update({ status: "rejected", completed: true })
-    .eq("id", orderId);
 
-  if(error){
-    alert("❌ خطأ: " + error.message);
-    return;
-  }
-
-  alert("❌ تم رفض الطلب");
-  loadOrders();
-}
-async function loadPayments(){
-  try {
-    const user = getUser();
-    if(!user.id){
-      document.getElementById("paymentsList").innerHTML='<div style="text-align:center;padding:40px;"><p style="font-size:18px;">❌ لا يوجد مستخدم</p></div>';
-      return;
-    }
-    
-    const { data: payments } = await supabaseClient.from("payments").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-    
-    let html='<h3>دفعاتي</h3>';
-    
-    if(!payments || payments.length === 0){
-      html+='<div style="text-align:center;padding:40px;"><p style="font-size:18px;">📭 لا يوجد دفعات</p></div>';
-    } else {
-      payments.forEach(p=>{
-        let statusText=p.status==="approved"?"✅ موافق":p.status==="rejected"?"❌ مرفوض":"⏳ قيد الانتظار";
-        let statusClass=p.status==="approved"?"completed":p.status==="rejected"?"rejected":"";
-        html+=`<div class="order-item ${statusClass}"><h3>${p.method}</h3><p><strong>المبلغ:</strong> ${p.amount} ${p.currency}</p><p><strong>بالدولار:</strong> $${p.usd_amount.toFixed(2)}</p><p><strong>📅 التاريخ:</strong> ${new Date(p.created_at).toLocaleDateString('ar-EG')}</p><p><strong>⏰ الوقت:</strong> ${new Date(p.created_at).toLocaleTimeString('ar-EG')}</p><div class="status ${p.status}"><span style="color: #2ecc71;">${statusText}</span></div></div>`;
-      });
-    }
-    
-    document.getElementById("paymentsList").innerHTML=html;
-  } catch(error) {
-    console.error("خطأ في تحميل الدفعات:", error);
-  }
-}
-/* --- العودة للكود الأصلي 100% --- */
-
-function sendToTelegram(text) {
-    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-    fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            chat_id: CHAT_ID,
-            text: text
-        })
-    }).catch(e => console.error("❌ خطأ الشبكة:", e));
-}
-
-// دالة فتح الكرت (openPopup) كما في صورك بالضبط
-function openPopup(appName) {
-    selectedApp = appName;
-    const popup = document.getElementById("buyPopup");
-    if (popup) {
-        popup.style.display = "flex"; // إظهار الكرت
-        document.getElementById("popupTitle").innerText = appName;
-        // تصفير القيم عند الفتح
-        document.getElementById("popupAmount").value = "";
-        document.getElementById("popupUserId").value = "";
-        document.getElementById("popupTotal").value = "";
-    }
-}
-
-function closePopup() {
-    const popup = document.getElementById("buyPopup");
-    if (popup) popup.style.display = "none";
-}
-
-function confirmBuy() {
-    let id = document.getElementById("popupUserId").value;
-    if (!id) {
-        alert("⚠️ يرجى إدخال معرف اللاعب (ID)");
-        return;
-    }
-    
-    // إذا كان عندك دالة confirmBuyReal رح يناديها، إذا لا رح يطلع تنبيه
-    if (typeof confirmBuyReal === "function") {
-        confirmBuyReal();
-    } else {
-        alert("✅ تم استلام طلبك");
-        closePopup();
-    }
-}
-
-// تشغيل النظام وإصلاح مشكلة الشريط الجانبي
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof initSupabase === "function") initSupabase();
-
-    // إغلاق الشريط الجانبي عند الضغط على الـ overlay (الخلفية)
-    let overlay = document.getElementById("overlay");
-    let sidebar = document.getElementById("sidebar");
-    if (overlay) {
-        overlay.onclick = function() {
-            if (sidebar) sidebar.classList.remove("open");
-            overlay.style.display = "none";
-        };
-    }
-});
-
-// تحديث البيانات تلقائياً
-setInterval(() => {
-    if (typeof syncData === 'function') syncData();
-}, 30000);
-
-</script>
-</body>
-</html>
